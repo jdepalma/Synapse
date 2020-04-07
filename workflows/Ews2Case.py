@@ -26,9 +26,21 @@ from thehive4py.api import TheHiveApi
 from thehive4py.models import Case, CaseTask, CaseObservable, CustomFieldHelper
 from thehive4py.models import Alert, AlertArtifact
 
-#observables = []
+#Location of whitelist file
+WHITELIST = '/home/thehive/Synapse/Synapse/workflows/objects/thehive.whitelist'
+#Example contents of thehive.whitelist
+'''
+\.domain\.com
+.domain.com
+domain.com
+172\.16\.\d{1,3}\.\d{1,3}
+192\.168\.\d{1,3}\.\d{1,3}
+'''
+#List to hold contents from whitelist file
 whitelists = []
 
+#TheHive Api key
+API_KEY = '******'
 
 def connectEws():
     logger = logging.getLogger(__name__)
@@ -43,9 +55,7 @@ def connectEws():
         folder_name = cfg.get('EWS', 'folder_name')
         unread = ewsConnector.scan(folder_name)
 
-        theHiveConnector = TheHiveConnector(cfg)
-
-        API_KEY = '******'
+        theHiveConnector = TheHiveConnector(cfg)       
 
         api = TheHiveApi('http://127.0.0.1:9000', API_KEY)
 
@@ -96,7 +106,7 @@ def connectEws():
             
             fullBody = getEmailBody(msg)
             
-            #Scan body message for observables
+            #Scan body message for observables, returns list of observables
             observables = searchObservables(fullBody)
 
             taskLog = theHiveConnector.craftTaskLog(fullBody)
@@ -139,7 +149,7 @@ def connectEws():
                             theHiveConnector.addFileObservable(esCaseId,
                                 tmpFilepath,
                                 comment)
-            
+            #Parse obserables
             for o in observables:
                 if isWhitelisted(o['value']):
                     print("skipping %s" % o['value'])
@@ -156,8 +166,6 @@ def connectEws():
                     response = api.create_case_observable(esCaseId, observable)
                     time.sleep(1)
         report['success'] = True
-#        observables = []
-#        whitelists = []
         return report
 
     except Exception as e:
@@ -269,7 +277,7 @@ def isWhitelisted(string):
     Check if the provided string matches one of the whitelist regexes
     '''
     global whitelists
-    whitelists = loadWhitelists('/home/thehive/Synapse/Synapse/workflows/objects/thehive.whitelist')
+    whitelists = loadWhitelists(WHITELIST)
     found = False
     for w in whitelists:
         if re.search(w, string, re.IGNORECASE):
